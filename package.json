@@ -1,0 +1,22 @@
+{
+  "name": "wraplint",
+  "version": "0.1.0",
+  "description": "A linter for text meant to be read wrapped: line length, trailing whitespace, mixed indentation, reported with exact line and column numbers.",
+  "license": "MIT",
+  "private": true,
+  "bin": {
+    "wraplint": "dist/cli.js"
+  },
+  "main": "dist/linter.js",
+  "types": "dist/linter.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  }
+}
