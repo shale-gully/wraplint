@@ -79,11 +79,49 @@ a CI check.
 ## Options
 
 ```
-wraplint [--max-line-length N] [--tab-width N] <file...>
+wraplint [--max-line-length N] [--tab-width N] [--format text|json] <file...>
 
 --max-line-length N   maximum visual line width (default 80)
 --tab-width N         columns a tab occupies for width calculations (default 4)
+--format text|json    output format (default text)
 ```
+
+### JSON output
+
+`--format json` prints one JSON object to stdout instead of the human-readable
+report, for feeding into other tools:
+
+```
+node dist/cli.js --format json example.txt
+```
+
+```json
+{
+  "files": [
+    {
+      "filename": "example.txt",
+      "error": null,
+      "findings": [
+        {
+          "ruleId": "max-line-length",
+          "severity": "error",
+          "line": 2,
+          "column": 81,
+          "length": 10,
+          "message": "line is 90 columns wide, 10 over the 80-column limit"
+        }
+      ]
+    }
+  ],
+  "errorCount": 1,
+  "warningCount": 2
+}
+```
+
+A file wraplint couldn't read gets an entry with `error` set to the message
+and an empty `findings` array, instead of aborting the whole run. The exit
+code is still 1 if any finding is an error and 2 if any file couldn't be
+read, same as text mode.
 
 ## Rules
 
@@ -102,6 +140,7 @@ match what you'd count in a terminal, not what you'd count with `line[i]`.
 Early. The rule set above is what exists today; there's no config file yet,
 and Unicode combining characters and wide (e.g. CJK) characters are counted
 as one column each, which is wrong for wide characters specifically.
+Machine-readable output is covered by `--format json` above.
 
 ## Library use
 

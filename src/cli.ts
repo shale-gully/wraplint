@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs';
 import { Linter, splitLines } from './linter';
 import { expandTabs, Finding } from './rules';
 
+type OutputFormat = 'text' | 'json';
+
 interface ParsedArgs {
   files: string[];
   maxLineLength: number;
   tabWidth: number;
+  format: OutputFormat;
   help: boolean;
 }
 
@@ -14,6 +17,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const files: string[] = [];
   let maxLineLength = 80;
   let tabWidth = 4;
+  let format: OutputFormat = 'text';
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -22,6 +26,12 @@ function parseArgs(argv: string[]): ParsedArgs {
       maxLineLength = Number(argv[++i]);
     } else if (arg === '--tab-width') {
       tabWidth = Number(argv[++i]);
+    } else if (arg === '--format') {
+      const value = argv[++i];
+      if (value !== 'text' && value !== 'json') {
+        throw new Error(`--format must be "text" or "json", got ${JSON.stringify(value)}`);
+      }
+      format = value;
     } else if (arg === '--help' || arg === '-h') {
       help = true;
     } else {
@@ -29,18 +39,19 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { files, maxLineLength, tabWidth, help };
+  return { files, maxLineLength, tabWidth, format, help };
 }
 
 function printUsage(): void {
   console.log(`wraplint - a linter for text that is meant to be read wrapped
 
 Usage:
-  wraplint [--max-line-length N] [--tab-width N] <file...>
+  wraplint [--max-line-length N] [--tab-width N] [--format text|json] <file...>
 
 Options:
   --max-line-length N   maximum visual line width (default 80)
   --tab-width N         columns a tab occupies (default 4)
+  --format text|json    output format (default text)
   -h, --help            show this message`);
 }
 
@@ -57,8 +68,22 @@ function formatFinding(filename: string, lines: string[], finding: Finding, tabW
   return `${header}\n\n${codeLine}\n${caretLine}\n`;
 }
 
+interface FileReport {
+  filename: string;
+  error: string | null;
+  findings: Finding[];
+}
+
 function main(): void {
-  const { files, maxLineLength, tabWidth, help } = parseArgs(process.argv.slice(2));
+  let args: ParsedArgs;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    console.error(`wraplint: ${(err as Error).message}`);
+    process.exitCode = 2;
+    return;
+  }
+  const { files, maxLineLength, tabWidth, format, help } = args;
 
   if (help || files.length === 0) {
     printUsage();
@@ -67,39 +92,54 @@ function main(): void {
   }
 
   const linter = new Linter({ maxLineLength, tabWidth });
+  const reports: FileReport[] = [];
   let errorCount = 0;
   let warningCount = 0;
+  let readErrors = false;
 
   for (const file of files) {
     let text: string;
     try {
       text = readFileSync(file, 'utf8');
     } catch (err) {
-      console.error(`wraplint: cannot read ${file}: ${(err as NodeJS.ErrnoException).message}`);
-      process.exitCode = 2;
+      readErrors = true;
+      reports.push({ filename: file, error: (err as NodeJS.ErrnoException).message, findings: [] });
+      if (format === 'text') {
+        console.error(`wraplint: cannot read ${file}: ${(err as NodeJS.ErrnoException).message}`);
+      }
       continue;
     }
 
     const result = linter.lintText(file, text);
-    if (result.findings.length === 0) continue;
+    reports.push({ filename: file, error: null, findings: result.findings });
 
-    const lines = splitLines(text);
-    const gutterWidth = String(lines.length).length;
+    if (format === 'text' && result.findings.length > 0) {
+      const lines = splitLines(text);
+      const gutterWidth = String(lines.length).length;
+      for (const finding of result.findings) {
+        console.log(formatFinding(file, lines, finding, tabWidth, gutterWidth));
+      }
+    }
 
     for (const finding of result.findings) {
-      console.log(formatFinding(file, lines, finding, tabWidth, gutterWidth));
       if (finding.severity === 'error') errorCount++;
       else warningCount++;
     }
   }
 
-  const total = errorCount + warningCount;
-  if (total > 0) {
-    console.log(
-      `${total} problem${total === 1 ? '' : 's'} (${errorCount} error${errorCount === 1 ? '' : 's'}, ${warningCount} warning${warningCount === 1 ? '' : 's'})`,
-    );
-    if (errorCount > 0) process.exitCode = 1;
+  if (format === 'json') {
+    console.log(JSON.stringify({ files: reports, errorCount, warningCount }, null, 2));
+  } else {
+    const total = errorCount + warningCount;
+    if (total > 0) {
+      console.log(
+        `${total} problem${total === 1 ? '' : 's'} (${errorCount} error${errorCount === 1 ? '' : 's'}, ${warningCount} warning${warningCount === 1 ? '' : 's'})`,
+      );
+    }
   }
+
+  if (errorCount > 0) process.exitCode = 1;
+  if (readErrors) process.exitCode = 2;
 }
 
 main();
