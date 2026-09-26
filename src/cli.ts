@@ -1,23 +1,22 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { loadConfig, OutputFormat } from './config';
 import { Linter, splitLines } from './linter';
-import { expandTabs, Finding } from './rules';
-
-type OutputFormat = 'text' | 'json';
+import { DEFAULT_OPTIONS, expandTabs, Finding } from './rules';
 
 interface ParsedArgs {
   files: string[];
-  maxLineLength: number;
-  tabWidth: number;
-  format: OutputFormat;
+  maxLineLength?: number;
+  tabWidth?: number;
+  format?: OutputFormat;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   const files: string[] = [];
-  let maxLineLength = 80;
-  let tabWidth = 4;
-  let format: OutputFormat = 'text';
+  let maxLineLength: number | undefined;
+  let tabWidth: number | undefined;
+  let format: OutputFormat | undefined;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -52,7 +51,10 @@ Options:
   --max-line-length N   maximum visual line width (default 80)
   --tab-width N         columns a tab occupies (default 4)
   --format text|json    output format (default text)
-  -h, --help            show this message`);
+  -h, --help            show this message
+
+Options are also read from a .wraplintrc file (JSON) in the current
+directory; command-line flags take precedence over it.`);
 }
 
 function formatFinding(filename: string, lines: string[], finding: Finding, tabWidth: number, gutterWidth: number): string {
@@ -83,13 +85,26 @@ function main(): void {
     process.exitCode = 2;
     return;
   }
-  const { files, maxLineLength, tabWidth, format, help } = args;
+  const { files, help } = args;
 
   if (help || files.length === 0) {
     printUsage();
     process.exitCode = files.length === 0 && !help ? 1 : 0;
     return;
   }
+
+  let config: ReturnType<typeof loadConfig>;
+  try {
+    config = loadConfig(process.cwd());
+  } catch (err) {
+    console.error(`wraplint: ${(err as Error).message}`);
+    process.exitCode = 2;
+    return;
+  }
+
+  const maxLineLength = args.maxLineLength ?? config.maxLineLength ?? DEFAULT_OPTIONS.maxLineLength;
+  const tabWidth = args.tabWidth ?? config.tabWidth ?? DEFAULT_OPTIONS.tabWidth;
+  const format: OutputFormat = args.format ?? config.format ?? 'text';
 
   const linter = new Linter({ maxLineLength, tabWidth });
   const reports: FileReport[] = [];

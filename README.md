@@ -86,6 +86,23 @@ wraplint [--max-line-length N] [--tab-width N] [--format text|json] <file...>
 --format text|json    output format (default text)
 ```
 
+### Config file
+
+A `.wraplintrc` file in the current directory is read as JSON and used to
+fill in any option not given on the command line; flags always win over it.
+
+```json
+{
+  "maxLineLength": 100,
+  "tabWidth": 2,
+  "format": "json"
+}
+```
+
+All keys are optional. A malformed config file (bad JSON, or a value of the
+wrong type) is reported as an error and stops the run instead of being
+silently ignored.
+
 ### JSON output
 
 `--format json` prints one JSON object to stdout instead of the human-readable
@@ -137,10 +154,11 @@ match what you'd count in a terminal, not what you'd count with `line[i]`.
 
 ## Status
 
-Early. The rule set above is what exists today; there's no config file yet,
-and Unicode combining characters and wide (e.g. CJK) characters are counted
-as one column each, which is wrong for wide characters specifically.
-Machine-readable output is covered by `--format json` above.
+Early. The rule set above is what exists today, and config files are covered
+by `.wraplintrc` above. Unicode combining characters and wide (e.g. CJK)
+characters are still counted as one column each, which is wrong for wide
+characters specifically. Machine-readable output is covered by `--format
+json` above.
 
 ## Library use
 
