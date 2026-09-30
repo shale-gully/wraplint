@@ -155,10 +155,13 @@ match what you'd count in a terminal, not what you'd count with `line[i]`.
 ## Status
 
 Early. The rule set above is what exists today, and config files are covered
-by `.wraplintrc` above. Unicode combining characters and wide (e.g. CJK)
-characters are still counted as one column each, which is wrong for wide
-characters specifically. Machine-readable output is covered by `--format
+by `.wraplintrc` above. Machine-readable output is covered by `--format
 json` above.
+
+Widths follow a built-in table rather than a full Unicode database: CJK,
+fullwidth forms and common emoji count as two columns, and combining marks,
+variation selectors and zero-width joiners count as none. Rarer scripts may
+still be off by a column.
 
 ## Library use
 
